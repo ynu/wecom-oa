@@ -1,6 +1,6 @@
 {
   "name": "wecom-oa",
-  "version": "2.0.0",
+  "version": "2.3.0",
   "description": "企业微信API - OA  SDK",
   "main": "index.mjs",
   "scripts": {
