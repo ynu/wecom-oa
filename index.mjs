@@ -2,12 +2,13 @@
  * 企业微信API-OA
  */
  import axios from 'axios';
+ import dayjs from 'dayjs';
  import { getToken, qyHost, WecomError } from 'wecom-common';
  import Debug from 'debug';
-import debug from 'debug';
  const warn = Debug('wecom-oa:warn');
  const error = Debug('wecom-oa:error');
  const info = Debug('wecom-oa:info');
+ const debug = Debug('wecom-oa:debug');
  
 
 export class ApprovalDetail {
@@ -75,7 +76,7 @@ export class ApprovalDetail {
 }
 
 export class SpNoList extends Array {
-  constructor (list, next_cursor) {
+  constructor (list, next_cursor = 0) {
     super(...list);
     this.next_cursor = next_cursor;
   }
@@ -100,7 +101,7 @@ export const getApprovalDetail = async (sp_no, options = {}) => {
 }
  
  export class RecordList extends Array {
-  constructor (list, next_cursor, endflag) {
+  constructor (list, next_cursor = 0, endflag = 1) {
     super(...list);
     this.next_cursor = next_cursor;
     this.endflag = endflag;
@@ -147,17 +148,34 @@ export const getJournalRecordList = async (params = {}, options = {}) => {
  */
 export const getJournalUuidList = async (params = {}, options = {}) => {
   let result = new RecordList([], 0, 1);
-  do {
-    const res = await getJournalRecordList({
-      ...params,
-      cursor: result.next_cursor,
-    }, options);
-    result = new RecordList([
-      ...result,
-      ...res,
-    ], res.next_cursor, res.endflag);
-    // console.log('###', result.length, result.next_cursor, result.endflag);
-  } while (!result.endflag);
+  let { starttime, endtime } = params;
+  const timepoints = separateTimeSpan(starttime, endtime);
+  if (timepoints.length > 2) {
+    debug(`查询时间区间超过31天,将分步查询`);
+    for (let i = 1  ; i < timepoints.length; i++) {
+      const res = await getJournalRecordList({
+        ...params,
+        starttime: timepoints[i - 1],
+        endtime: i == timepoints.length - 1 ? timepoints[i] : timepoints[i] - 1, // 最后一组是闭区间[],其余是半开半闭区间[)
+      }, options);
+      result = new RecordList([
+        ...result,
+        ...res,
+      ]);
+    }
+  } else {
+    debug(`查询时间区间未超过31天,开始查询`);
+    do {
+      const res = await getJournalRecordList({
+        ...params,
+        cursor: result.next_cursor,
+      }, options);
+      result = new RecordList([
+        ...result,
+        ...res,
+      ]);
+    } while (!result.endflag);
+  }
   return result;
 }
 
@@ -240,9 +258,10 @@ export const getJournalRecordDetail = async (journaluuid, options = {}) => {
  * @see https://developer.work.weixin.qq.com/document/path/91816
  */
 export const getApprovalInfo = async (params = {}, options = {}) => {
+  const now = dayjs();
   params = Object.assign({
-    endtime: Math.round(Date.now()/1000),
-    starttime: Math.round(Date.now()/1000) + 1 - 3600 * 24 * 28, // 默认读取最近28天的数据
+    endtime: now.unix(),
+    starttime: now.subtract(1, 'month').unix(), // 默认读取最近一个月的数据
     cursor: 0,
     size: 100,
     filters: {},
@@ -275,18 +294,50 @@ export const getApprovalInfo = async (params = {}, options = {}) => {
  */
 export const getSpNoList = async (params = {}, options = {}) => {
   let result = new SpNoList([], 0);
-  do {
-    const res = await getApprovalInfo({
-      ...params,
-      cursor: result.next_cursor,
-    }, options);
-    result = new SpNoList([
-      ...result,
-      ...res,
-    ], res.next_cursor);
-    // console.log('###', result.length, result.next_cursor);
-  } while (result.next_cursor);
+
+  let { starttime, endtime } = params;
+  const timepoints = separateTimeSpan(starttime, endtime);
+  if (timepoints.length > 2) {
+    debug(`查询时间区间超过31天,将分步查询`);
+    for (let i = 1  ; i < timepoints.length; i++) {
+      const res = await getSpNoList({
+        ...params,
+        starttime: timepoints[i - 1],
+        endtime: i == timepoints.length - 1 ? timepoints[i] : timepoints[i] - 1, // 最后一组是闭区间[],其余是半开半闭区间[)
+      }, options);
+      result = new SpNoList([
+        ...result,
+        ...res,
+      ]);
+    }
+  } else {
+    debug(`查询时间区间未超过31天,开始查询`);
+    do {
+      const res = await getApprovalInfo({
+        ...params,
+        cursor: result.next_cursor,
+      }, options);
+      result = new SpNoList([
+        ...result,
+        ...res,
+      ], res.next_cursor);
+    } while (result.next_cursor);
+  }
   return result;
+}
+
+/**
+ * 将starttime和endtime (Unix 秒)分成不超过span时长(秒)的时间段
+ * @returns 
+ */
+export const separateTimeSpan = (starttime, endtime, span = 31 * 24 * 3600) => {
+  const timepoints = [];
+  do {
+    timepoints.push(starttime);
+    starttime += span;
+  } while (starttime < endtime);
+  timepoints.push(endtime);
+  return timepoints;
 }
  
  export default {
@@ -295,4 +346,5 @@ export const getSpNoList = async (params = {}, options = {}) => {
    getSpNoList,
    getJournalRecordList,
    getJournalRecordDetail,
+   separateTimeSpan,
  };
