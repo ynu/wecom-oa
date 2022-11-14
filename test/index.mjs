@@ -12,7 +12,8 @@ const {
   APPROVAL_SECRET,
   TEST_JOURNAL_RECORD_ID,
   TEST_APPROVAL_NO,
-  TEST_JOURNAL_TEMPLATE_ID
+  TEST_JOURNAL_TEMPLATE_ID,
+  TEST_APPROVAL_TEMPLATE_ID,
 } = process.env;
 
 describe('wecom-oa 测试', function() {
@@ -65,7 +66,7 @@ describe('wecom-oa 测试', function() {
     it ('批量获取审批单', async () => {
       const res = await getApprovalInfo({ size: 1 }, options);
       assert.ok(res);
-    })
+    });
     it('时间段分割', () => {
       const start = Math.round((new Date('2022-01-01')).getTime()/1000);
       const end = Math.round((new Date('2022-11-12')).getTime()/1000);
@@ -76,6 +77,13 @@ describe('wecom-oa 测试', function() {
       const res = await getSpNoList({}, options);
       assert.equal(res.next_cursor, 0);
       assert.ok(res);
+    });
+    it('获取指定过滤条件的审批单号', async () => {
+      const res = await getSpNoList({
+        filters: {
+          template_id: TEST_APPROVAL_TEMPLATE_ID,
+        },
+      }, options);
     });
     it('获取符合条件的所有审批单号(31天外)', async () => {
       const res = await getSpNoList({
