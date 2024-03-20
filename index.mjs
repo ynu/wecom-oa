@@ -348,7 +348,7 @@ export const separateTimeSpan = (starttime, endtime, span = 31 * 24 * 3600) => {
  * @returns 
  */
 export const gettemplatedetail = async (template_id, options = {}) => {
-  info(`获取审批模板详情[${sp_no}]`);
+  info(`获取审批模板详情[${template_id}]`);
    const token = await getToken(options);
    const res = await axios.post(`${qyHost}/oa/gettemplatedetail?access_token=${token}`, {
     template_id,
