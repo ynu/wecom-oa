@@ -339,6 +339,25 @@ export const separateTimeSpan = (starttime, endtime, span = 31 * 24 * 3600) => {
   timepoints.push(endtime);
   return timepoints;
 }
+
+
+/**
+ * 获取审批模板详情
+ * @param {String} template_id 模板的唯一标识id
+ * @param {Object} options options 获取token的参数
+ * @returns 
+ */
+export const gettemplatedetail = async (template_id, options = {}) => {
+  info(`获取审批模板详情[${sp_no}]`);
+   const token = await getToken(options);
+   const res = await axios.post(`${qyHost}/oa/gettemplatedetail?access_token=${token}`, {
+    template_id,
+  });
+  if (res.data.errcode) {
+    throw new WecomError(res.data.errcode, res.data.errmsg);
+  }
+  return res.data;
+}
  
  export default {
    getApprovalDetail,
